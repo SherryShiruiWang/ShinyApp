@@ -20,8 +20,11 @@ options(repos = BiocManager::repositories())
 
 
 
-
 load("classifiers.RData")
+diabetes_top10_genes<-read_rds("diabetes_top10_genes.rds")
+rejection_encode_filtered<-readRDS("rejection_encode_filtered.rds")
+transplant_top10_genes<-readRDS("transplant_10_genes.rds")
+disease<-readRDS("disease.rds")
 
 
 
@@ -53,12 +56,8 @@ colors <- c("Other patients(mean)" = "black", "You"="red")
 
 ### Confusion matrix 
 
-diabetes_top_10_genes<-read_rds("diabetes_top10_genes.rds")
-rejection_encode_filtered<-readRDS("rejection_encode_filtered.rds")
-transplant_top10_genes<-readRDS("transplant_10_genes.rds")
-disease<-readRDS("disease.rds")
 
-X = as.matrix(t(diabetes_top_10_genes))
+X = as.matrix(t(diabetes_top10_genes))
 y = disease
 X2 = as.matrix(t(transplant_top10_genes))
 y2 = rejection_encode_filtered
@@ -149,21 +148,24 @@ rf_cm <- caret::confusionMatrix(CV_rf$preds, CV_rf$real)
 CM1<-draw_confusion_matrix(rf_cm, "Random forest - Diabetes")
 
 #transplant
-CV_rf2 <- lapply(1:3, function(x){ 
-  model <- randomForest::randomForest(x = X2[folds != x,], y = as.factor(y2[folds != x]))
+CV_svm <- lapply(1:3, function(x){ 
+  model <- e1071::svm(x = X2[folds != x,], y = as.factor(y2[folds != x]))
   preds <- predict(model,  X2[folds == x,])
   return(data.frame(preds, real = as.factor(y2[folds == x])))
 })
 
-CV_rf2 <- do.call(rbind, CV_rf2)
+CV_svm <- do.call(rbind, CV_svm)
 
-rf_cm2 <- caret::confusionMatrix(CV_rf2$preds, CV_rf2$real)
+svm_cm <- caret::confusionMatrix(CV_svm$preds, CV_svm$real)
 
-CM2<-draw_confusion_matrix(rf_cm2, "Random forest - Transplant")
+CM2<-draw_confusion_matrix(svm_cm, "SVM (Transplant)")
 
 
 ##Product
 
+
+
+###
 
 ui = dashboardPage(
   dashboardHeader(title = "Kidney Rejection Predictor",titleWidth = 400),
@@ -175,7 +177,7 @@ ui = dashboardPage(
       menuItem("Information", tabName = "Information", icon = icon("info")),
       menuItem("Data", tabName = "Data", icon = icon("database")),
       menuItem("Classifier", tabName = "Classifier", icon = icon("clipboard")),
-      menuItem("Validation", tabName = "References", icon = icon("folder-open") )
+      menuItem("Validation", tabName = "Validation", icon = icon("folder-open") )
       
     )
       
@@ -188,28 +190,29 @@ ui = dashboardPage(
         tabItem(tabName = "Information",
                 tabsetPanel(
                   tabPanel("About this Tool",
-                           h3(strong("Hello and welcome to our Kidney Rejection Risk Calculator.")),
+                           tags$head(tags$style('h2 {color:cornflowerblue;}')), h2(strong("Hello and welcome to our Kidney Rejection Risk Calculator.")),
                            h4("In this calculator, you will enter your specific Gene Expression values for the Top 10 Genes we have identified as playing a role in Kidney Rejection, you will also do this for Type II Diabetes. "),
                            h4("This calculator will then predict whether or not you will experience Acute Kidney Rejection or acception."),
                            h4("The calculator will also make a prediction on whether you have Type II Diabetes based on the Gene Expression values you have input for the Top 10 Genes provided."),
                            br(),
-                           h3(strong("How to navigate")),
+                           h2(strong("How to navigate")),
                            h4("Head to the Data Tab to enter the required top 10 genes and click on the 'Enter' button to start your prediction."),
                            h4("The validation tab displays the predictors key performance accuracies."),
                            h4("Once you've entered the genes for yourself or for your patients, head to the Classifier Tab and switch between the Transplant Predictor and Diabetes Predictor for your prediction results!  "),
                            h4("There you'll also find some informative charts and plots that will help you understand your prediction results.")
                   ),
                   tabPanel("Methods",
-                             h4("GSE20966-This dataset was used to train the diabetes classifier. It included more than 61 000 gene outputs for 20 patients. 10 patients in the dataset had Type 2 Diabetes and 10 did not"),
-                             h4("GSE14346-This dataset was used to train the kidney rejection classifier.It included more than 54 000 genes for 75 patients. 38 patients had acute kidney reject and 37 had no rejection."),
+                           
+                             h4(code("GSE20966"),"-This dataset was used to train the diabetes classifier. It included more than 61 000 gene outputs for 20 patients. 10 patients in the dataset had Type 2 Diabetes and 10 did not"),
+                             h4(code("GSE14346"),"-This dataset was used to train the kidney rejection classifier.It included more than 54 000 genes for 75 patients. 38 patients had acute kidney reject and 37 had no rejection."),
                              br(),
                              h4(strong("Step1:"),"Pre processed data sets - normalising, filtering out NA’s. "),
                              h4(strong("Step2:"),"Filtered common genes present in both data sets."),
                              h4(strong("Step3:"),"Filtered multiple probes by finding the maximum"),
                              h4(strong("Step4:"),"Filtered both datasets to top 10 genes with greatest significance."),
-                             h4(strong("Step5:"),"Trained and tested Random Forest Type 2 Diabetes Classifier."),
+                             h4(strong("Step5:"),"Trained and tested Random Forest (RF) Type 2 Diabetes Classifier."),
                              h4(strong("Step6:"),"Filtered kidney dataset based on the Diabetes classifier."),
-                             h4(strong("Step7:"),"Trained and tested Random Forest Kidney Transplant classifier specifically for Type 2 Diabetes Patients.")
+                             h4(strong("Step7:"),"Trained and tested Support Vector Machine (SVM) Kidney Transplant classifier specifically for Type 2 Diabetes Patients.")
                            
                              
                   )
@@ -241,7 +244,7 @@ ui = dashboardPage(
                     h4(strong("PCOLCE2:"), "Procollagen C-Endopeptidase Enhancer 2 is a Protein Coding gene. "),
                     h4(strong("NEFL:"), "Neurofilaments are type IV intermediate filament heteropolymers composed of light, medium, and heavy chains. Neurofilaments comprise the axoskeleton and they functionally maintain the neuronal caliber. They may also play a role in intracellular transport to axons and dendrites. This gene encodes the light chain neurofilament protein. "),
                     
-              
+                    
                     
             
                     
@@ -249,8 +252,9 @@ ui = dashboardPage(
                 ), tabPanel("Upload Information",
                             fluidRow(
                               
-                              box(
-                                h4(strong("Kidney Transplant Prediction Gene Values")),      
+                              box( title = "Kidney Transplant Prediction Gene Values",  status = "warning", solidHeader = T,
+                                   
+                                #h4(strong("Kidney Transplant Prediction Gene Values")),      
                                 numericInput(inputId = "gene1", label = "CCDC69 gene value", value = 0),  
                                 numericInput(inputId = "gene2", label = "RASGRF1 gene value", value = 0),
                                 numericInput(inputId = "gene3", label = "MDFIC gene value", value = 0),
@@ -267,8 +271,8 @@ ui = dashboardPage(
                                 width  = 6
                               ),
                               
-                              box(
-                                h4(strong("Diabetes Prediction")), 
+                              box(title= "Diabetes Prediction",  status = "warning", solidHeader = T,
+                                #h4(strong("Diabetes Prediction")), 
                               
                                 actionButton(inputId = "denter", label = "Predict for Diabetes"),
                                 br(),
@@ -301,38 +305,53 @@ ui = dashboardPage(
             tabsetPanel(
        
               tabPanel("Transplant Predictor",
+                       #box( title = "Warning",width = 10,background = "maroon",
+                       #     h5('Please enter your Gene Data to output the Gene comparison plot!')
+                       #),
+                       textOutput(outputId = "warning"),
                        fluidRow(
                          valueBoxOutput(outputId = "class"),
                        
-                       box(title = "Pie Chart", solidHeader = T,
+                       box(title = "Pie Chart",  status = "primary", solidHeader = T,
                            width = 10, collapsible = T,
                            plotOutput("pie")),
+                       
+                       
+                       
                        box(
-                         title = "Gene Comparison Plot", solidHeader = T,
+                         title = "Gene Comparison Plot",  status = "primary",solidHeader = T,
                          width = 10, collapsible = T,
                          plotOutput("scatter_transplant")
-                       ),
-                       box( h5('Please enter your Gene Data to output the scatter plot.')
-                       ),
+                       )
+                      
                   
                        )
                        ),
               tabPanel( "Diabetes Predictor", 
-                        
+                        textOutput(outputId = "warning2"),
+                        #box( title = "Warning",width = 10,background = "maroon",
+                         #    h5('Please enter your Gene Data to output the Gene comparison plot!')
+                       # ),
                         fluidRow(
                             valueBoxOutput(outputId = "diab")
                         ),
                         fluidRow( 
-                           box( h5('This Classifier is Not for Diagnosis Purposes!')
+                           box( background = "maroon",
+                             h5('This Classifier is Not for Diagnosis Purposes!')
                                 ),
                         ),
-                          box(
-                            title = "Gene Comparison Plot", solidHeader = T,
+                        
+                        fluidRow( box(
+                            title = "Gene Comparison Plot", status = "primary",
+                            solidHeader = TRUE,
                             width = 10, collapsible = T,
+                            fluidRow(
                             plotOutput("scatter_diabetes")
-                          ),
-                          box( h5('Please enter your Gene Data to output the scatter plot.')
-                          ),
+                            )
+                          )),
+                        
+                       
+                          
                           
                           #FR
                                 
@@ -346,20 +365,39 @@ ui = dashboardPage(
         
                    
           ),
-        tabItem(tabName = "References",
+        tabItem(tabName = "Validation",
+                
                 fluidRow(
                   
-                  box(
-                    title = "Confusion Matrix-Random Forest-Transplant Predictor", solidHeader = T,
-                    width = 8, collapsible = T,
-                    plotOutput(outputId = "CM2")
-                  ),
+                  box(title = "Confusion Matrix-Random Forest-Transplant Predictor",
+                      status = "primary", solidHeader = TRUE,
+                      width = 9,collapsible = T,
+                      fluidRow(
+                        plotOutput(outputId = "CM2")
+                        
+                      )),
+                 # box(
+                  #  title = "Confusion Matrix-Random Forest-Transplant Predictor", solidHeader = T,
+                  #  width = 8, collapsible = T,
+                 #   plotOutput(outputId = "CM2")
+                 # ),
+                 
+                 
+                   box(title = "Confusion Matrix-Random Forest-Diabetes Predictor",
+                       status = "primary", solidHeader = TRUE,
+                       width = 9,collapsible = T,
+                       fluidRow(
+                         plotOutput(outputId = "CM")
+                         
+                       )),
+                  #box(
+                  #  title = "Confusion Matrix-Random Forest-Diabetes Predictor", solidHeader = T,
+                  #  width = 8, collapsible = T,
+                 
+                  #),
                   
-                  box(
-                    title = "Confusion Matrix-Random Forest-Diabetes Predictor", solidHeader = T,
-                    width = 8, collapsible = T,
-                  plotOutput(outputId = "CM")
-                  )
+                
+                                     
                   
                   
                   
@@ -383,7 +421,7 @@ ui = dashboardPage(
   
 
 server = function(input, output) {
-
+ 
   
   t_results = observeEvent(input$enter, {
     
@@ -391,7 +429,7 @@ server = function(input, output) {
     values = matrix(c(input$gene1, input$gene2, input$gene3, input$gene4, input$gene5, input$gene6, input$gene7, input$gene8, input$gene9, input$gene10), nrow = 1)
     
     print(1)
-    results = predict(t_rf_res, values)
+    results = predict(t_svm_res, values)
     if(results == 1){
       
       output$class = renderValueBox({
@@ -413,7 +451,7 @@ server = function(input, output) {
   
   
     di_results = observeEvent(input$denter, {
-     
+      #output$warning = renderText("hhhihihi")
      
       values = matrix(c(input$gene10, input$gene4, input$gene7, input$gene3, input$gene2, input$gene5, input$gene9, input$gene8, input$gene6, input$gene1), nrow = 1)
       
@@ -432,6 +470,8 @@ server = function(input, output) {
         
         output$diab = renderValueBox({
           valueBox("Positive","Type II Diabetes Prediction", icon = icon("exclamation-triangle"), color = "yellow")
+          
+      
           } )
         
       }
@@ -441,13 +481,41 @@ server = function(input, output) {
   }
   )                       
                            
-                           
-  
-  output$diab = renderText({
-    "Please Input Your Gene Data In The Data Tab"
+    observe({
+      input$enter
+      input$denter  
+      showModal(modalDialog(
+        title = "Notification",
+        "You've entered your gene values!"
+      ))
+    })                         
+    #output$diab=  observeEvent(input$enter, {
+    #  box( title = "Warning",width = 10,background = "maroon",
+     #      h5("Please Input Your Gene Data In The Data Tab!")
+    #  )
+   # })
     
-  })
+    
+    
+  #output$warning = renderText({
+   # if (is.null(input$enter) )
+   #   {
+   #   box( title = "Warning",width = 10,background = "maroon",
+   #      h5("Please Input Your Gene Data In The Data Tab to view the outputs.")
+    
+   # )
+   # }
+ # })
   
+  #output$warning2 = renderText({
+  #  if (is.null(input$denter) )
+   # {
+   #   box( title = "Warning",width = 10,background = "maroon",
+   #        h5("Please Input Your Gene Data In The Data Tab to view the outputs.")
+           
+   #   )
+   # }
+  #})
   output$class = renderText({"Please Input Your Gene Data In The Data Tab"})
 
   output$pie <- renderPlot({
@@ -532,7 +600,7 @@ server = function(input, output) {
   
   output$CM2 <-renderPlot({
     
-    draw_confusion_matrix(rf_cm2, "Random forest - Transplant")
+    draw_confusion_matrix(svm_cm, "SVM -Transplant")
   })
   
 }
