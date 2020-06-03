@@ -481,14 +481,25 @@ server = function(input, output) {
   }
   )                       
                            
-    observe({
-      input$enter
-      input$denter  
-      showModal(modalDialog(
-        title = "Notification",
+    observeEvent(input$denter,{
+      
+       
+      showNotification(
+        #title = "Notification",
         "You've entered your gene values!"
-      ))
-    })                         
+      )
+    })  
+    
+    observeEvent(input$enter,{
+      
+      
+      showNotification(
+        #title = "Notification",
+        "You've entered your gene values!"
+      )
+    })  
+   
+    
     #output$diab=  observeEvent(input$enter, {
     #  box( title = "Warning",width = 10,background = "maroon",
      #      h5("Please Input Your Gene Data In The Data Tab!")
