@@ -500,33 +500,7 @@ server = function(input, output) {
     })  
    
     
-    #output$diab=  observeEvent(input$enter, {
-    #  box( title = "Warning",width = 10,background = "maroon",
-     #      h5("Please Input Your Gene Data In The Data Tab!")
-    #  )
-   # })
-    
-    
-    
-  #output$warning = renderText({
-   # if (is.null(input$enter) )
-   #   {
-   #   box( title = "Warning",width = 10,background = "maroon",
-   #      h5("Please Input Your Gene Data In The Data Tab to view the outputs.")
-    
-   # )
-   # }
- # })
-  
-  #output$warning2 = renderText({
-  #  if (is.null(input$denter) )
-   # {
-   #   box( title = "Warning",width = 10,background = "maroon",
-   #        h5("Please Input Your Gene Data In The Data Tab to view the outputs.")
-           
-   #   )
-   # }
-  #})
+
   output$class = renderText({"Please Input Your Gene Data In The Data Tab"})
 
   output$pie <- renderPlot({
